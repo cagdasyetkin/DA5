@@ -60,27 +60,27 @@ ggplot(aes(log(hexppc),lifeexp ), data=health[year == 2003] ) +
   ylab('Life expectancy at birth') +
   xlab('ln health expenditure per capita (PPP constant 2005$)')
 
-ccols1 <- lm(formula= lifeexp~ log(hexppc), data=health[year==2003])
-coeftest(ccols1, vcov=sandwich)
+ccols1_h <- lm(formula= lifeexp~ log(hexppc), data=health[year==2003])
+coeftest(ccols1_h, vcov=sandwich)
 
-ccols2 <- lm(formula= lifeexp~ log(hexppc) + log(gdppc) + log(pop), data=health[year==2003])
-coeftest(ccols2, vcov=sandwich)
+ccols2_h <- lm(formula= lifeexp~ log(hexppc) + log(gdppc) + log(pop), data=health[year==2003])
+coeftest(ccols2_h, vcov=sandwich)
 
 #World trends of life expectancy, health expenditures per capita GDP per capita 
 #Avg of all countries weighted by population, normalized by subtracting 1995 values
 
-world_trend <- health[,lapply(mget(c("hexppc","lifeexp","gdppc")) ,weighted.mean,w=pop), 
+world_trend_h <- health[,lapply(mget(c("hexppc","lifeexp","gdppc")) ,weighted.mean,w=pop), 
          by = year]
 
-world_trend[order(year),`:=`(rellnhexppc = log(hexppc) - first(log(hexppc)),
+world_trend_h[order(year),`:=`(rellnhexppc = log(hexppc) - first(log(hexppc)),
                   rellngdp = log(gdppc) - first(log(gdppc))) ]
 
 
-p1 <- ggplot(aes(year, lifeexp), data = world_trend) + 
+p1 <- ggplot(aes(year, lifeexp), data = world_trend_h) + 
     geom_line(size = 1, color = 'darkgreen') + 
     ylab('average life expectancy')
 
-p2 <- ggplot(aes(x = year), data = world_trend) +
+p2 <- ggplot(aes(x = year), data = world_trend_h) +
     geom_line(aes(y = rellnhexppc), size = 1, linetype = 'dotted', color = 'blue') +
     geom_line(aes(y = rellngdp), size = 1, linetype = 'dashed', color = 'firebrick') +
     geom_text(x = 2009, y = 0.7, label = 'health expenditure', color = 'blue') +
@@ -96,12 +96,12 @@ panel_health <- pdata.frame(health, index = c('country_name', 'year'))
 head(panel_health)
 
 # First differences
-diff1 <- plm(
+diff1_h <- plm(
     diff(lifeexp) ~ diff(log(hexppc)) + year, 
     data = panel_health, model = 'pooling'
 )
 #obtain clustered standard error
-coeftest(diff1, vcov=vcovHC(diff1,type="HC0",cluster="group"))
+coeftest(diff1_h, vcov=vcovHC(diff1,type="HC0",cluster="group"))
 #logs- if we have 10% increase in health exp in a given country the increase should be 10% expen above overall change accross countries
 #0.01 year increase in life exp in that country.
 #control for year. log diff on right hand side. divide by 100.
@@ -110,11 +110,11 @@ coeftest(diff1, vcov=vcovHC(diff1,type="HC0",cluster="group"))
 
 #this doesnt take the lag into account. expend will effect 5 years later. not now. we will do it in the following part:
 
-diff2 <- plm(
+diff2_h <- plm(
     diff(lifeexp) ~ diff(log(hexppc)) + lag(diff(log(hexppc)), 1:2) + year,
     data = panel_health, model = 'pooling'
 )
-coeftest(diff2, vcov=vcovHC(diff2,type="HC0",cluster="group"))
+coeftest(diff2_h, vcov=vcovHC(diff2,type="HC0",cluster="group"))
 #2 lags, original veriable not significant any more. but the second one is significant.
 
 diff3 <- plm(
@@ -140,7 +140,7 @@ coeftest(diff5, vcov=vcovHC(diff5,type="HC0",cluster="group"))
 #second lag of the first diff. then we have second diff of original veriable.
 #first variable will have the same coeff 0.355 sum of coefs in previous model with first lags.
 #here we wanna have a cummulative effect. 
-summary(diff2) #check it out. see 0.35 - 0.18 gives coef of the previous one.
+summary(diff2_h) #check it out. see 0.35 - 0.18 gives coef of the previous one.
 #result of this model is 0.36 and it is significant at 5% level
 
 
@@ -190,11 +190,11 @@ coeftest(diff4_2, vcov=vcovHC(diff4_2,type="HC0",cluster="group"))
 #precision increased.
 
 # FE > use within, country fixed effect and year fixed effect > twoways
-fe1 <- plm( 
+fe1_h <- plm( 
     lifeexp ~ log(hexppc), data = panel_health, 
     model = 'within', effect = 'twoways'
 )
-coeftest(fe1, vcov=vcovHC(fe1,type="HC0",cluster="group"))
+coeftest(fe1_h, vcov=vcovHC(fe1,type="HC0",cluster="group"))
 #cant see the country and year dummies here in the result. but similar interpretation.
 #diff in fe and fd estimation its a bit different. here we have,
 #if you have between countries or between years 10% higher h exp in a given country
@@ -202,11 +202,11 @@ coeftest(fe1, vcov=vcovHC(fe1,type="HC0",cluster="group"))
 #its always compared to the average for that given coutnry. basically, estimating a fe model
 #is the same like OLS. effect is always compared to the mean of that country. demeaned OLS.
 
-fe2 <- plm( 
+fe2_h <- plm( 
     lifeexp ~ log(hexppc) + log(pop), data = panel_health, 
     model = 'within', effect = 'twoways'
 )
-coeftest(fe2, vcov=vcovHC(fe2,type="HC0",cluster="group"))
+coeftest(fe2_h, vcov=vcovHC(fe2,type="HC0",cluster="group"))
 #only we need to specifiy, having the same population, you compare the expenditure.
 #no laggs anymore. we dont include lags. why. because, intuitively, using fixed effect already takes it into account
 #think of OLS demeaned regression. demeaned, overall change in health expenditure and life exp. manual control not needed.
